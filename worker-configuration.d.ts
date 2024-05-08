@@ -2,6 +2,6 @@
 // by running `wrangler types`
 
 interface Env {
-	DUNE_API_KEY: string;
-	SLACK_WEBHOOK: string;
+  DUNE_API_KEY: string;
+  SLACK_WEBHOOK: string;
 }
