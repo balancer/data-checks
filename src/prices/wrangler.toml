@@ -1,6 +1,6 @@
 #:schema node_modules/wrangler/config-schema.json
-name = "data-checks"
-main = "src/index.ts"
+name = "data-checks-prices"
+main = "index.ts"
 compatibility_date = "2024-05-02"
 
 # Cron Triggers
