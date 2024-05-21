@@ -63,6 +63,10 @@ data-checks/
         └── wrangler.toml
 ```
 
+## Adding variables
+
+To add variables to the data check, like DUNE API KEY, add them to the KV store defined in the add_env.sh script. The script will add the variables to the KV store, which will be accessible in the data check function.
+
 ## Notes
 
 - Ensure that the `scripts` folder contains all required script files: `create.sh`, `deploy.sh`, and `typegen.sh`.

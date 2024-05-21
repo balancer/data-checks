@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "add_env": "sh ./scripts/add_env.sh",
     "create": "sh ./scripts/create.sh",
     "deploy": "sh ./scripts/deploy.sh",
     "cf-typegen": "sh ./scripts/typegen.sh",

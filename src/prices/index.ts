@@ -77,6 +77,7 @@ const compare = async (duneKey: string) => {
   const balancerPrices = await getPricesFromAPI();
   // Fetch the prices from the Dune API
   const dunePrices = await getPricesFromDune(duneKey);
+  console.log('dunePrices', dunePrices.size);
   // Use all balancer API addresses
   const addresses = Array.from(new Set([...balancerPrices.keys()]));
 
@@ -110,7 +111,16 @@ const compare = async (duneKey: string) => {
 
 export default {
   async fetch(event: FetchEvent, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const checks = await compare(env.DUNE_API_KEY);
+    // Get the ENV variables
+    const DUNE_API_KEY = await env.DATA_CHECKS_ENV.get('DUNE_API_KEY');
+
+    if (!DUNE_API_KEY) {
+      return new Response('DUNE_API_KEY is not set', { status: 500 });
+    }
+
+    console.log('DUNE_API_KEY', DUNE_API_KEY);
+
+    const checks = await compare(DUNE_API_KEY);
 
     // return only the addresses with a price difference greater than 2%
     const drifters = checks.filter((check) => check.drift && check.drift > 0.02);

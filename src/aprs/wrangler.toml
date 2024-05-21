@@ -73,9 +73,10 @@ crons = ["0 0/2 * * *"] # * * * * * = run every second hour
 
 # Bind a KV Namespace. Use KV as persistent storage for small key-value pairs.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#kv-namespaces
-# [[kv_namespaces]]
-# binding = "MY_KV_NAMESPACE"
-# id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+[[kv_namespaces]]
+binding = "DATA_CHECKS_ENV"
+id = "142056288a3a455eae3aa1dfe3855ffd"
+preview_id = "b6d4c93a89b846de807b545a7ada8b99"
 
 # Bind an mTLS certificate. Use to present a client certificate when communicating with another service.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#mtls-certificates

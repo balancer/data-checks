@@ -58,7 +58,7 @@ async function fetchAndCompareAprs(slackUrl: string) {
       await fetch(slackUrl, {
         method: 'POST',
         body: JSON.stringify({
-          channel: '#api-alerts-prod',
+          channel: '#data-checks',
           username: 'APRs',
           text: 'APRs off - need to call poolReloadAllPoolAprs(chain: OPTIMISM) mutation',
         }),
@@ -75,11 +75,26 @@ async function fetchAndCompareAprs(slackUrl: string) {
 
 export default {
   async fetch(event: FetchEvent, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const r = await fetchAndCompareAprs(env.SLACK_WEBHOOK);
+    // Get the ENV variables
+    const SLACK_WEBHOOK = await env.DATA_CHECKS_ENV.get('SLACK_WEBHOOK');
+
+    if (!SLACK_WEBHOOK) {
+      return new Response('SLACK_WEBHOOK is not set', { status: 500 });
+    }
+
+    const r = await fetchAndCompareAprs(SLACK_WEBHOOK);
     return new Response(r);
   },
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    // Get the ENV variables
+    const SLACK_WEBHOOK = await env.DATA_CHECKS_ENV.get('SLACK_WEBHOOK');
+
+    if (!SLACK_WEBHOOK) {
+      return;
+    }
+
     console.log(event.scheduledTime);
-    await fetchAndCompareAprs(env.SLACK_WEBHOOK);
+
+    await fetchAndCompareAprs(SLACK_WEBHOOK);
   },
 };
