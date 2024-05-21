@@ -3,7 +3,7 @@ export default {
   async fetch(event: FetchEvent, env: Env, ctx: ExecutionContext): Promise<Response> {
     // Get the check results from KV
     const aprs = await env.DATA_CHECKS_ENV.get('aprs');
-    const prices = await env.DATA_CHECKS_ENV.get('aprs');
+    const prices = await env.DATA_CHECKS_ENV.get('prices');
 
     // Format the response as a simple HTML in pre tags
     return new Response(
