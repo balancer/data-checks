@@ -5,6 +5,7 @@
   "scripts": {
     "create": "sh ./scripts/create.sh",
     "deploy": "sh ./scripts/deploy.sh",
-    "cf-typegen": "sh ./scripts/typegen.sh"
+    "cf-typegen": "sh ./scripts/typegen.sh",
+    "start": "sh ./scripts/start.sh"
   }
 }

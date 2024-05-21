@@ -1,14 +1,14 @@
 type Fetcher = (key?: string) => Promise<Map<string, number>>;
 
 // Ethereum addresses to fetch prices for
-const addresses = [
-  '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2', // WETH
-  '0x83f20f44975d03b1b09e64809b757c47f942beea', // sDAI
-  '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599', // WBTC
-  '0xba100000625a3754423978a60c9317c58a424e3d', // BAL
-  '0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9', // AAVE
-  '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', // USDC
-];
+// const addresses = [
+//   '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2', // WETH
+//   '0x83f20f44975d03b1b09e64809b757c47f942beea', // sDAI
+//   '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599', // WBTC
+//   '0xba100000625a3754423978a60c9317c58a424e3d', // BAL
+//   '0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9', // AAVE
+//   '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', // USDC
+// ];
 
 // Fetches the current prices from the balancer API
 const getPricesFromAPI: Fetcher = async () => {
@@ -43,19 +43,32 @@ const getPricesFromDune: Fetcher = async (key?: string) => {
   if (!key) {
     return {} as Map<string, number>;
   }
-  const url = 'https://api.dune.com/api/v1/query/3707230/results?limit=1000';
+  const url = 'https://api.dune.com/api/v1/query/3707230/results';
   const headers = {
     'X-Dune-API-Key': key,
   };
-  const response = await fetch(url, { headers });
-  const body = await response.json();
-  const {
-    result: { rows },
-  } = body as { result: { rows: { contract_address: string; price: number }[] } };
+  let offset = 0;
+  const limit = 1000;
   const prices = new Map<string, number>();
-  rows.forEach((price) => {
-    prices.set(price.contract_address, price.price);
-  });
+
+  while (true) {
+    const response = await fetch(`${url}?limit=${limit}&offset=${offset}`, { headers });
+    const body = await response.json();
+    const {
+      result: { rows },
+    } = body as { result: { rows: { contract_address: string; price: number }[] } };
+
+    rows.forEach((price) => {
+      prices.set(price.contract_address, price.price);
+    });
+
+    if (rows.length < limit) {
+      break;
+    }
+
+    offset += limit;
+  }
+
   return prices;
 };
 
@@ -64,10 +77,15 @@ const compare = async (duneKey: string) => {
   const balancerPrices = await getPricesFromAPI();
   // Fetch the prices from the Dune API
   const dunePrices = await getPricesFromDune(duneKey);
+  // Use all balancer API addresses
+  const addresses = Array.from(new Set([...balancerPrices.keys()]));
 
   const checks = addresses.map((address) => {
     const balancerPrice = balancerPrices.get(address);
     const dunePrice = dunePrices.get(address);
+    if (!dunePrice) {
+      console.log(`No price for ${address} in Dune`);
+    }
     if (!balancerPrice || !dunePrice) {
       return {
         address,
@@ -94,28 +112,31 @@ export default {
   async fetch(event: FetchEvent, env: Env, ctx: ExecutionContext): Promise<Response> {
     const checks = await compare(env.DUNE_API_KEY);
 
-    return new Response(JSON.stringify(checks));
+    // return only the addresses with a price difference greater than 2%
+    const drifters = checks.filter((check) => check.drift && check.drift > 0.02);
+    return new Response(JSON.stringify(drifters), { headers: { 'Content-Type': 'application/json' } });
+
+    // return new Response(JSON.stringify(checks));
   },
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     // Compare the prices from the balancer API and the Dune API
     const checks = await compare(env.DUNE_API_KEY);
 
-    for (const check of checks) {
-      if (check.diff && check.diff > 0.02) {
-        // Send an alert if the price difference is greater than 2%
-        await fetch(env.SLACK_WEBHOOK, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            channel: '#api-alerts-prod',
-            username: 'TokenPrices',
-            text: `Price difference for ${check.address} is ${check.diff * 100}%`,
-          }),
-        });
-      }
-      console.log(check);
+    // Send an alert if the price difference is greater than 2%
+    const drifters = checks.filter((check) => check.drift && check.drift > 0.02);
+
+    if (drifters.length > 0) {
+      await fetch(env.SLACK_WEBHOOK, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          channel: '#data-checks',
+          username: 'TokenPrices',
+          text: `Price differences: ${drifters.map((check) => `${check.address}: ${check.diff && check.diff * 100}%`)}`,
+        }),
+      });
     }
   },
 };
