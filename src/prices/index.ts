@@ -109,6 +109,10 @@ const compare = async (duneKey: string) => {
   return checks;
 };
 
+const storeResults = async (store: KVNamespace, checks: any[]) => {
+  return store.put('prices', JSON.stringify(checks));
+};
+
 export default {
   async fetch(event: FetchEvent, env: Env, ctx: ExecutionContext): Promise<Response> {
     // Get the ENV variables
@@ -141,6 +145,16 @@ export default {
 
     // Send an alert if the price difference is greater than 2%
     const drifters = checks.filter((check) => check.drift && check.drift > 0.02);
+
+    // Store the results in the KV store
+    await env.DATA_CHECKS_ENV.put(
+      'prices',
+      JSON.stringify({
+        timestamp: Date.now(),
+        passed: drifters.length === 0,
+        result: drifters,
+      }),
+    );
 
     if (drifters.length > 0) {
       await fetch(SLACK_WEBHOOK, {

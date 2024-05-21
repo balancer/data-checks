@@ -51,23 +51,9 @@ async function fetchAndCompareAprs(slackUrl: string) {
 
     // Comparing APRs and triggering an alert if the difference is more than 5%
     const difference = Math.abs(apr1 - apr2);
-    if (difference > 0.05 * Math.max(apr1, apr2)) {
-      console.log('APR values differ by more than 5%', { apr1, apr2 });
-      // Here you would typically call another endpoint or handle the mismatch
-      // Example: await fetch('YOUR_ENDPOINT', { method: 'POST', body: JSON.stringify({apr1, apr2}) });
-      await fetch(slackUrl, {
-        method: 'POST',
-        body: JSON.stringify({
-          channel: '#data-checks',
-          username: 'APRs',
-          text: 'APRs off - need to call poolReloadAllPoolAprs(chain: OPTIMISM) mutation',
-        }),
-      });
-      return `APR values differ by more than 5% ${apr1}, ${apr2}`;
-    } else {
-      console.log('APR values are within the acceptable range', { apr1, apr2 });
-      return `APR values are within the acceptable range ${apr1}, ${apr2}`;
-    }
+
+    // Returns the relative difference between the two APRs in percentage
+    return Math.max(apr1, apr2) / difference;
   } catch (error) {
     console.error('Error fetching APR data:', error);
   }
@@ -82,8 +68,20 @@ export default {
       return new Response('SLACK_WEBHOOK is not set', { status: 500 });
     }
 
-    const r = await fetchAndCompareAprs(SLACK_WEBHOOK);
-    return new Response(r);
+    const difference = await fetchAndCompareAprs(SLACK_WEBHOOK);
+
+    if (!difference) {
+      return new Response('Error fetching APR data', { status: 500 });
+    }
+
+    let responseBody = '';
+    if (difference > 0.05) {
+      responseBody = `APR values differ by ${difference * 100}`;
+    } else {
+      responseBody = `APR values are within the acceptable range ${difference * 100}`;
+    }
+
+    return new Response(responseBody);
   },
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     // Get the ENV variables
@@ -93,8 +91,35 @@ export default {
       return;
     }
 
-    console.log(event.scheduledTime);
+    const difference = await fetchAndCompareAprs(SLACK_WEBHOOK);
 
-    await fetchAndCompareAprs(SLACK_WEBHOOK);
+    // Store the check result in KV
+    await env.DATA_CHECKS_ENV.put(
+      'aprs',
+      JSON.stringify({
+        timestamp: event.scheduledTime,
+        passed: difference && difference <= 0.05,
+        result: difference,
+      }),
+    );
+
+    let errorMessage = '';
+
+    if (!difference) {
+      errorMessage = 'Failed to fetch APRs for checking';
+    } else if (difference > 0.05) {
+      errorMessage = `APR values differ by ${difference * 100}, need to call poolReloadAllPoolAprs(chain: OPTIMISM) mutation`;
+    }
+
+    if (errorMessage) {
+      await fetch(SLACK_WEBHOOK, {
+        method: 'POST',
+        body: JSON.stringify({
+          channel: '#data-checks',
+          username: 'APRs',
+          text: errorMessage,
+        }),
+      });
+    }
   },
 };
