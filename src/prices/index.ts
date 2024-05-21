@@ -129,8 +129,10 @@ export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     // Get the ENV variables
     const DUNE_API_KEY = await env.DATA_CHECKS_ENV.get('DUNE_API_KEY');
+    const SLACK_WEBHOOK = await env.DATA_CHECKS_ENV.get('SLACK_WEBHOOK');
 
-    if (!DUNE_API_KEY) {
+    if (!DUNE_API_KEY || !SLACK_WEBHOOK) {
+      console.error('DUNE_API_KEY or SLACK_WEBHOOK is not set');
       return;
     }
 
@@ -141,7 +143,7 @@ export default {
     const drifters = checks.filter((check) => check.drift && check.drift > 0.02);
 
     if (drifters.length > 0) {
-      await fetch(env.SLACK_WEBHOOK, {
+      await fetch(SLACK_WEBHOOK, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
