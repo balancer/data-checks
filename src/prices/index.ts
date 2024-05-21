@@ -118,8 +118,6 @@ export default {
       return new Response('DUNE_API_KEY is not set', { status: 500 });
     }
 
-    console.log('DUNE_API_KEY', DUNE_API_KEY);
-
     const checks = await compare(DUNE_API_KEY);
 
     // return only the addresses with a price difference greater than 2%
@@ -129,8 +127,15 @@ export default {
     // return new Response(JSON.stringify(checks));
   },
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    // Get the ENV variables
+    const DUNE_API_KEY = await env.DATA_CHECKS_ENV.get('DUNE_API_KEY');
+
+    if (!DUNE_API_KEY) {
+      return;
+    }
+
     // Compare the prices from the balancer API and the Dune API
-    const checks = await compare(env.DUNE_API_KEY);
+    const checks = await compare(DUNE_API_KEY);
 
     // Send an alert if the price difference is greater than 2%
     const drifters = checks.filter((check) => check.drift && check.drift > 0.02);
