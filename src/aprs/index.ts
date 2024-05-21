@@ -97,8 +97,9 @@ export default {
     await env.DATA_CHECKS_ENV.put(
       'aprs',
       JSON.stringify({
+        name: 'APR',
         timestamp: event.scheduledTime,
-        passed: difference && difference <= 0.05,
+        status: difference && difference <= 0.05 ? 'success' : 'failure',
         result: difference,
       }),
     );

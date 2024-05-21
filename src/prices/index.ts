@@ -150,8 +150,9 @@ export default {
     await env.DATA_CHECKS_ENV.put(
       'prices',
       JSON.stringify({
+        name: 'Mainnet Token Prices',
         timestamp: Date.now(),
-        passed: drifters.length === 0,
+        status: drifters.length === 0 ? 'success' : 'failure',
         result: drifters,
       }),
     );
