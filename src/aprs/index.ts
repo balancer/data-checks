@@ -8,7 +8,7 @@
  * Learn more at https://developers.cloudflare.com/workers/
  */
 
-async function fetchAndCompareAprs(slackUrl: string) {
+async function fetchAndCompareAprs() {
   const graphqlEndpoint = 'https://api-v3.balancer.fi/';
   const restEndpoint = 'https://api.balancer.fi/pools/10/0x8bb826afc0ff7d2c034a2883f4c461ffd238e1c300020000000000000000012b';
   const graphqlQuery = {
@@ -32,8 +32,11 @@ async function fetchAndCompareAprs(slackUrl: string) {
     `,
   };
 
+  let newApr = 0;
+  let oldApr = 0;
+
+  // Fetching APR from GraphQL API
   try {
-    // Fetching APR from GraphQL API
     const graphqlResponse = await fetch(graphqlEndpoint, {
       method: 'POST',
       headers: {
@@ -42,33 +45,30 @@ async function fetchAndCompareAprs(slackUrl: string) {
       body: JSON.stringify(graphqlQuery),
     });
     const graphqlData = await graphqlResponse.json();
-    const apr1 = parseFloat(graphqlData.data.poolGetPool.dynamicData.apr.apr.total);
+    newApr = parseFloat(graphqlData.data.poolGetPool.dynamicData.apr.apr.total);
+  } catch (error) {
+    console.error('Error fetching APR data from the new API:', error);
+  }
 
-    // Fetching APR from REST API
+  // Fetching APR from REST API
+  try {
     const restResponse = await fetch(restEndpoint);
     const restData = await restResponse.json();
-    const apr2 = restData.apr.tokenAprs.total / 10000.0; // Adjusting for scale difference
-
-    // Comparing APRs and triggering an alert if the difference is more than 5%
-    const difference = Math.abs(apr1 - apr2);
-
-    // Returns the relative difference between the two APRs in percentage
-    return Math.max(apr1, apr2) / difference;
+    oldApr = restData.apr.tokenAprs.total / 10000.0; // Adjusting for scale difference
   } catch (error) {
     console.error('Error fetching APR data:', error);
   }
+
+  // Comparing APRs and triggering an alert if the difference is more than 5%
+  const difference = Math.abs(newApr - oldApr);
+
+  // Returns the relative difference between the two APRs in percentage
+  return difference / Math.max(newApr, oldApr);
 }
 
 export default {
   async fetch(event: FetchEvent, env: Env, ctx: ExecutionContext): Promise<Response> {
-    // Get the ENV variables
-    const SLACK_WEBHOOK = await env.DATA_CHECKS_ENV.get('SLACK_WEBHOOK');
-
-    if (!SLACK_WEBHOOK) {
-      return new Response('SLACK_WEBHOOK is not set', { status: 500 });
-    }
-
-    const difference = await fetchAndCompareAprs(SLACK_WEBHOOK);
+    const difference = await fetchAndCompareAprs();
 
     if (!difference) {
       return new Response('Error fetching APR data', { status: 500 });
@@ -91,7 +91,7 @@ export default {
       return;
     }
 
-    const difference = await fetchAndCompareAprs(SLACK_WEBHOOK);
+    const difference = await fetchAndCompareAprs();
 
     // Store the check result in KV
     await env.DATA_CHECKS_ENV.put(
